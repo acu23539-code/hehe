@@ -1,0 +1,108 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local lp = Players.LocalPlayer
+local playerGui = lp:WaitForChild("PlayerGui")
+
+local _enabled = true
+local _focused = nil
+local _seen = {}
+
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "AutoCode"
+gui.ResetOnSpawn = false
+gui.Parent = playerGui
+
+local btn = Instance.new("TextButton")
+btn.Size = UDim2.new(0, 120, 0, 40)
+btn.Position = UDim2.new(0, 20, 0, 200)
+btn.Text = "AUTO: ON"
+btn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+btn.TextColor3 = Color3.new(1,1,1)
+btn.Parent = gui
+
+
+-- lấy textbox đang focus
+UserInputService.TextBoxFocused:Connect(function(box)
+	_focused = box
+end)
+
+UserInputService.TextBoxFocusReleased:Connect(function(box)
+	if _focused == box then
+		_focused = nil
+	end
+end)
+
+-- ✅ CHỈ NHẬN CODE THẬT
+local function isValidCode(txt)
+	local clean = (txt or ""):gsub("%s+", "")
+
+	if #clean < 4 or #clean > 20 then return false end
+	if clean:find("[^A-Za-z0-9%-%_]") then return false end
+
+	-- phải có chữ hoặc số
+	if not clean:match("%d") and not clean:match("%u") and not clean:match("%l") then
+		return false
+	end
+
+	return true
+end
+
+-- nhập vào textbox
+local function appendToBox(text)
+	if not _focused then return end
+
+	local cur = _focused.Text or ""
+	if cur == "" then
+		_focused.Text = text
+	else
+		_focused.Text = cur .. " " .. text
+	end
+end
+
+-- xử lý text
+local function process(text)
+	if not _enabled then return end
+	if not text or #text < 2 then return end
+	if _seen[text] then return end
+
+	_seen[text] = true
+	task.delay(10, function()
+		_seen[text] = nil
+	end)
+
+	-- ❌ CHỈ NHẬN CODE THẬT
+	if not isValidCode(text) then return end
+
+	appendToBox(text)
+end
+
+-- hook UI text
+local function hook(obj)
+	if obj:IsA("TextLabel") then
+		obj:GetPropertyChangedSignal("Text"):Connect(function()
+			process(obj.Text)
+		end)
+
+		process(obj.Text)
+	end
+end
+
+playerGui.DescendantAdded:Connect(function(obj)
+	task.wait(0.05)
+	hook(obj)
+end)
+
+-- toggle ON/OFF
+btn.MouseButton1Click:Connect(function()
+	_enabled = not _enabled
+
+	if _enabled then
+		btn.Text = "AUTO: ON"
+		btn.BackgroundColor3 = Color3.fromRGB(0,200,0)
+	else
+		btn.Text = "AUTO: OFF"
+		btn.BackgroundColor3 = Color3.fromRGB(200,0,0)
+	end
+end)
